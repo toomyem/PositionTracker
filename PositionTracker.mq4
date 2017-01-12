@@ -3,6 +3,8 @@
 #property strict
 #property description "Automatically adjust SL according to closed bars"
 
+input bool IgnoreBarsAgainstPosition = false; // Ignore bars that are against open opsition
+
 datetime lastTime = Time[0];
 
 double Spread() {
@@ -10,6 +12,7 @@ double Spread() {
 }
 
 int OnInit() {
+   Print("Ignore bars is ", IgnoreBarsAgainstPosition);
    return(INIT_SUCCEEDED);
 }
 
@@ -22,11 +25,11 @@ bool IsNewBar() {
 }
 
 bool LastBarIsGreen() {
-   return Open[1] < Close[1];
+   return IgnoreBarsAgainstPosition || (Open[1] < Close[1]);
 }
 
 bool LastBarIsRed() {
-   return Close[1] < Open[1];
+   return IgnoreBarsAgainstPosition || (Close[1] < Open[1]);
 }
 
 bool StopLossIsHigherThenOpenPrice(double newStopLoss) {
