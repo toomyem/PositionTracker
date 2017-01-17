@@ -12,7 +12,7 @@ double Spread() {
 }
 
 int OnInit() {
-   Print("Ignore bars is ", IgnoreBarsAgainstPosition);
+   Print("Ignore reverse bars is ", IgnoreBarsAgainstPosition);
    return(INIT_SUCCEEDED);
 }
 
