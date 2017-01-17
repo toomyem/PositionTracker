@@ -5,7 +5,7 @@
 
 input bool IgnoreBarsAgainstPosition = false; // Ignore bars that are against open opsition
 
-datetime lastTime = Time[0];
+datetime lastTime;
 
 double Spread() {
    return Ask - Bid;
@@ -13,6 +13,7 @@ double Spread() {
 
 int OnInit() {
    Print("Ignore reverse bars is ", IgnoreBarsAgainstPosition);
+   lastTime = Time[0];
    return(INIT_SUCCEEDED);
 }
 
