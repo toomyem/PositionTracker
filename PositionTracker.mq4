@@ -4,6 +4,7 @@
 #property description "Automatically adjust SL according to closed bars"
 
 input bool IgnoreBarsAgainstPosition = false; // Ignore bars that are against open opsition
+input bool MoveToBEOnPlus = true; // Move SL to BE as soon as bar is closed on plus
 
 datetime lastTime;
 
@@ -12,7 +13,7 @@ double Spread() {
 }
 
 int OnInit() {
-   Print("Ignore reverse bars is ", IgnoreBarsAgainstPosition);
+   Print("Ignore reverse bars is ", IgnoreBarsAgainstPosition, "and Move to BE on plus is ", MoveToBEOnPlus);
    lastTime = Time[0];
    return(INIT_SUCCEEDED);
 }
@@ -44,30 +45,44 @@ bool StopLossIsLowerThenOpenPrice(double newStopLoss) {
 bool ShouldMoveStopLossUp(double newStopLoss) {
    return (OrderStopLoss() == 0 || newStopLoss > OrderStopLoss())
        && LastBarIsGreen()
-       && StopLossIsHigherThenOpenPrice(newStopLoss);
+       && StopLossIsHigherThenOpenPrice(newStopLoss)
+       && newStopLoss < Bid - Spread();
 }
 
 bool ShouldMoveStopLossDown(double newStopLoss) {
    return (OrderStopLoss() == 0 || newStopLoss < OrderStopLoss())
        && LastBarIsRed()
-       && StopLossIsLowerThenOpenPrice(newStopLoss);
+       && StopLossIsLowerThenOpenPrice(newStopLoss)
+       && newStopLoss > Ask + Spread();
+}
+
+void ModifyStopLoss(double newStopLoss, string msg) {
+   if(OrderModify(OrderTicket(), 0, newStopLoss, 0, 0)) {
+      Print(msg);
+   }
 }
 
 void HandleBuyOrder() {
    double newStopLoss = Low[1] - Spread();
    if(ShouldMoveStopLossUp(newStopLoss)) {
-      if(OrderModify(OrderTicket(), 0, newStopLoss, 0, 0)) {
-         Print("Buy Order modified");
-      }
+      ModifyStopLoss(newStopLoss, "Buy Order modified");
+   } 
+
+   newStopLoss = OrderOpenPrice() + Spread();
+   if(ShouldMoveStopLossUp(newStopLoss)) {
+      ModifyStopLoss(newStopLoss, "Buy Order modified to BE");
    }
 }
 
 void HandleSellOrder() {
    double newStopLoss = High[1] + Spread();
    if(ShouldMoveStopLossDown(newStopLoss)) {
-      if(OrderModify(OrderTicket(), 0, newStopLoss, 0, 0)) {
-         Print("Sell Order modified");
-      }
+      ModifyStopLoss(newStopLoss, "Sell Order modified");
+   }
+
+   newStopLoss = OrderOpenPrice() - Spread();
+   if(ShouldMoveStopLossDown(newStopLoss)) {
+      ModifyStopLoss(newStopLoss, "Sell Order modified to BE");
    }
 }
 
