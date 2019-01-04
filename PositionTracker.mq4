@@ -1,10 +1,9 @@
 #property copyright   "Copyright 2017-2018, toomyem@toomyem.net"
-#property version     "1.1"
+#property version     "1.2"
 #property strict
 #property description "Automatically adjust SL according to closed bars"
 
-input bool IgnoreBarsAgainstPosition = false; // Ignore bars that are against open opsition
-input bool MoveToBEOnPlus = true; // Move SL to BE as soon as bar is closed on plus
+//input bool IgnoreBarsAgainstPosition = true; // Ignore bars that are against open position
 
 datetime lastTime;
 
@@ -13,7 +12,6 @@ double Spread() {
 }
 
 int OnInit() {
-   Print("Ignore reverse bars is ", IgnoreBarsAgainstPosition, " and Move to BE on plus is ", MoveToBEOnPlus);
    lastTime = Time[0];
    return(INIT_SUCCEEDED);
 }
@@ -42,63 +40,80 @@ bool StopLossIsLowerThenOpenPrice(double newStopLoss) {
    return newStopLoss < OrderOpenPrice();
 }
 
-bool ShouldMoveStopLossUp(double newStopLoss) {
-   return (OrderStopLoss() == 0 || newStopLoss > OrderStopLoss())
-       && (!IgnoreBarsAgainstPosition || LastBarIsGreen())
-       && StopLossIsHigherThenOpenPrice(newStopLoss)
-       && newStopLoss < Bid - Spread();
-}
-
-bool ShouldMoveStopLossDown(double newStopLoss) {
-   return (OrderStopLoss() == 0 || newStopLoss < OrderStopLoss())
-       && (!IgnoreBarsAgainstPosition || LastBarIsRed())
-       && StopLossIsLowerThenOpenPrice(newStopLoss)
-       && newStopLoss > Ask + Spread();
-}
-
-void ModifyStopLoss(double newStopLoss, string msg) {
-   if(OrderModify(OrderTicket(), 0, newStopLoss, 0, 0)) {
-      Print(msg);
+void ModifyStopLoss(double newStopLoss) {
+   PrintFormat("Set SL to: %0.2f", newStopLoss);
+   if(!OrderModify(OrderTicket(), 0, newStopLoss, 0, 0)) {
+      PrintFormat("Error: %s", GetLastError());
    }
 }
 
-void HandleBuyOrder() {
-   double newStopLoss = Low[1] - Spread();
-   if(ShouldMoveStopLossUp(newStopLoss)) {
-      ModifyStopLoss(newStopLoss, "Buy Order modified");
-   } 
+bool IsLow(double &low) {
+   if(Low[3] > Low[2] && Low[2] < Low[1]) {
+      low = Low[2];
+      PrintFormat("Found low: %0.2f", low);
+      return true;
+   }
+   
+   Print("No low");
+   return false;
+}
 
-   newStopLoss = OrderOpenPrice() + Spread();
-   if(ShouldMoveStopLossUp(newStopLoss)) {
-      ModifyStopLoss(newStopLoss, "Buy Order modified to BE");
+bool IsHigh(double &high) {
+   if(High[3] < High[2] && High[2] > High[1]) {
+      high = High[2];
+      PrintFormat("Found high: %0.2f", high);
+      return true;
+   }
+   
+   Print("No high");
+   return false;
+}
+
+void HandleBuyOrder() {
+   double newStopLoss;
+   
+   if(IsLow(newStopLoss)) {
+      PrintFormat("Spread: %0.2f", Spread());
+      ModifyStopLoss(newStopLoss - Spread());
    }
 }
 
 void HandleSellOrder() {
-   double newStopLoss = High[1] + Spread();
-   if(ShouldMoveStopLossDown(newStopLoss)) {
-      ModifyStopLoss(newStopLoss, "Sell Order modified");
-   }
-
-   newStopLoss = OrderOpenPrice() - Spread();
-   if(ShouldMoveStopLossDown(newStopLoss)) {
-      ModifyStopLoss(newStopLoss, "Sell Order modified to BE");
+   double newStopLoss;
+   
+   if(IsHigh(newStopLoss)) {
+      PrintFormat("Spread: %0.2f", Spread());
+      ModifyStopLoss(newStopLoss + Spread());
    }
 }
 
 void OnTick() {
    if(IsNewBar()) {
-      Print("New bar");
-      for(int i = 0; i < OrdersTotal(); i++) {
-         if(OrderSelect(i, SELECT_BY_POS)) {
-            if(OrderSymbol() == ChartSymbol()) {
-               if(OrderType() == OP_BUY) {
-                  HandleBuyOrder();
-               } else if(OrderType() == OP_SELL) {
-                  HandleSellOrder();
-               }
-            }
+      
+      int ordersNum = OrdersTotal();
+      PrintFormat("New bar, %d orders", ordersNum);
+      
+      for(int i = 0; i < ordersNum; i++) {
+      
+         if(!OrderSelect(i, SELECT_BY_POS)) {
+            PrintFormat("Cannot select order %d: %s", i, GetLastError());
+            continue;
          }
+         
+         if(OrderSymbol() != ChartSymbol()) {
+            PrintFormat("Ignore order %s", OrderSymbol());
+            continue;
+         }
+         
+         PrintFormat("Spread for %s: %0.2f", Symbol(), Spread());
+         if(OrderType() == OP_BUY) {
+            HandleBuyOrder();
+         } else if(OrderType() == OP_SELL) {
+            HandleSellOrder();
+         } else {
+            PrintFormat("Ignore order type: %d", OrderType());
+         }
+         
       }
    }
 }
