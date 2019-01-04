@@ -1,5 +1,5 @@
-#property copyright   "Copyright 2017, toomyem@toomyem.net"
-#property version     "1.0"
+#property copyright   "Copyright 2017-2018, toomyem@toomyem.net"
+#property version     "1.1"
 #property strict
 #property description "Automatically adjust SL according to closed bars"
 
@@ -13,7 +13,7 @@ double Spread() {
 }
 
 int OnInit() {
-   Print("Ignore reverse bars is ", IgnoreBarsAgainstPosition, "and Move to BE on plus is ", MoveToBEOnPlus);
+   Print("Ignore reverse bars is ", IgnoreBarsAgainstPosition, " and Move to BE on plus is ", MoveToBEOnPlus);
    lastTime = Time[0];
    return(INIT_SUCCEEDED);
 }
@@ -23,15 +23,15 @@ bool IsNewBar() {
       lastTime = Time[0];
       return true;
    }
-   return false;   
+   return false;
 }
 
 bool LastBarIsGreen() {
-   return IgnoreBarsAgainstPosition || (Open[1] < Close[1]);
+   return Open[1] < Close[1];
 }
 
 bool LastBarIsRed() {
-   return IgnoreBarsAgainstPosition || (Close[1] < Open[1]);
+   return Close[1] < Open[1];
 }
 
 bool StopLossIsHigherThenOpenPrice(double newStopLoss) {
@@ -44,14 +44,14 @@ bool StopLossIsLowerThenOpenPrice(double newStopLoss) {
 
 bool ShouldMoveStopLossUp(double newStopLoss) {
    return (OrderStopLoss() == 0 || newStopLoss > OrderStopLoss())
-       && LastBarIsGreen()
+       && (!IgnoreBarsAgainstPosition || LastBarIsGreen())
        && StopLossIsHigherThenOpenPrice(newStopLoss)
        && newStopLoss < Bid - Spread();
 }
 
 bool ShouldMoveStopLossDown(double newStopLoss) {
    return (OrderStopLoss() == 0 || newStopLoss < OrderStopLoss())
-       && LastBarIsRed()
+       && (!IgnoreBarsAgainstPosition || LastBarIsRed())
        && StopLossIsLowerThenOpenPrice(newStopLoss)
        && newStopLoss > Ask + Spread();
 }
